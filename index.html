@@ -16,8 +16,8 @@ h1{text-align:center;font-size:2.2em;margin:20px 0 5px;background:linear-gradien
 .tab:hover{background:rgba(255,255,255,.12)}
 .card{background:rgba(255,255,255,.06);border:1px solid rgba(255,255,255,.1);border-radius:16px;padding:25px;margin-bottom:20px;backdrop-filter:blur(10px)}
 label{display:block;font-weight:600;margin-bottom:8px;color:#ffd200;font-size:.95em}
-textarea,input[type=text]{width:100%;padding:14px;border:2px solid rgba(255,255,255,.15);border-radius:10px;background:rgba(0,0,0,.3);color:#fff;font-size:1em;resize:vertical;font-family:inherit}
-textarea:focus,input[type=text]:focus{outline:none;border-color:#f7971e}
+textarea,input[type=text],select{width:100%;padding:14px;border:2px solid rgba(255,255,255,.15);border-radius:10px;background:rgba(0,0,0,.3);color:#fff;font-size:1em;resize:vertical;font-family:inherit}
+textarea:focus,input[type=text]:focus,select:focus{outline:none;border-color:#f7971e}
 textarea{min-height:100px}
 .btn{display:inline-block;padding:14px 28px;border:none;border-radius:10px;font-size:1em;font-weight:700;cursor:pointer;transition:.3s;margin-top:12px}
 .btn-primary{background:linear-gradient(90deg,#f7971e,#ffd200);color:#1a1a2e}
@@ -46,6 +46,8 @@ textarea{min-height:100px}
 .msg-status.err{display:block;background:rgba(255,80,80,.2);color:#ff8080}
 .footer{text-align:center;color:#555;font-size:.85em;margin-top:30px;padding-top:20px;border-top:1px solid rgba(255,255,255,.06)}
 .mode-desc{background:rgba(247,151,30,.1);border-left:3px solid #f7971e;padding:10px 14px;border-radius:0 8px 8px 0;margin-bottom:15px;font-size:.9em;color:#ccc}
+.expire-row{margin-bottom:18px;padding:14px;background:rgba(0,180,220,.08);border:1px solid rgba(0,180,220,.25);border-radius:10px}
+.expire-row label{margin-bottom:6px}
 @media(max-width:500px){
   h1{font-size:1.6em}
   .tabs{flex-direction:column}
@@ -74,6 +76,20 @@ textarea{min-height:100px}
     </div>
 
     <div class="card">
+      <!-- Expiry (shared) -->
+      <div class="expire-row">
+        <label for="expireHours">⏳ Message Expires After</label>
+        <select id="expireHours">
+          <option value="1">1 Hour</option>
+          <option value="2" selected>2 Hours</option>
+          <option value="6">6 Hours</option>
+          <option value="12">12 Hours</option>
+          <option value="24">24 Hours</option>
+          <option value="168">7 Days</option>
+        </select>
+        <div class="hint">Time poori hone pe message decode nahi hoga (expire ho jayega).</div>
+      </div>
+
       <!-- Option A -->
       <div id="encodeA">
         <div class="mode-desc">✅ Type your message → system auto-converts it into secret emojis. Friend pastes emojis to see your message.</div>
@@ -84,11 +100,11 @@ textarea{min-height:100px}
 
       <!-- Option B -->
       <div id="encodeB" class="hidden">
-        <div class="mode-desc">✅ Type your message → then pick emojis below to build a custom code. Each emoji you pick adds to your secret code.</div>
+        <div class="mode-desc">✅ Type your message → pick 2+ emojis below → secret code will use <b>ONLY your picked emojis</b> (no extra emojis).</div>
         <label>✍️ Your Secret Message</label>
         <textarea id="msgInputB" placeholder="Type your secret message here..."></textarea>
 
-        <label style="margin-top:15px">🎨 Pick Emojis for Your Code</label>
+        <label style="margin-top:15px">🎨 Pick Emojis for Your Code (min 2, click again to remove)</label>
         <div class="emoji-palette" id="emojiPalette"></div>
 
         <label style="margin-top:15px">📌 Your Chosen Emojis (click to remove)</label>
@@ -182,7 +198,9 @@ function buildPalette(){
 }
 
 function pickEmoji(e){
-  chosenEmojis.push(e);
+  const idx = chosenEmojis.indexOf(e);
+  if(idx >= 0) chosenEmojis.splice(idx, 1);
+  else chosenEmojis.push(e);
   renderChosen();
 }
 
@@ -192,6 +210,9 @@ function removeEmoji(idx){
 }
 
 function renderChosen(){
+  document.querySelectorAll('.emoji-pick').forEach(d=>{
+    d.classList.toggle('selected', chosenEmojis.indexOf(d.textContent) >= 0);
+  });
   const box = document.getElementById('chosenEmojis');
   if(chosenEmojis.length===0){
     box.innerHTML = '<span style="color:#666;font-size:.9em">Click emojis above to add them here...</span>';
@@ -200,9 +221,30 @@ function renderChosen(){
   box.innerHTML = chosenEmojis.map((e,i)=>`<span class="chosen-emoji" onclick="removeEmoji(${i})" title="Click to remove">${e}</span>`).join('');
 }
 
+// ============ EXPIRY ============
+function getPlainWithExpiry(text){
+  const hours = parseFloat(document.getElementById('expireHours').value) || 2;
+  const exp = Math.floor(Date.now()/1000) + Math.round(hours*3600);
+  return exp + '|' + text;
+}
+
+function getExpiryLabel(){
+  const hours = parseFloat(document.getElementById('expireHours').value) || 2;
+  if(hours < 24) return hours + ' hour(s)';
+  const days = hours / 24;
+  return days + ' day(s)';
+}
+
+function checkExpiry(decoded){
+  const m = decoded.match(/^(\d{9,})\|([\s\S]*)$/);
+  if(!m) return {expired:false, text:decoded};
+  const exp = parseInt(m[1],10);
+  if(Math.floor(Date.now()/1000) > exp) return {expired:true, text:''};
+  return {expired:false, text:m[2]};
+}
+
 // ============ ENCODING (Option A - Auto) ============
 function textToEmojis(text){
-  // Encode each char code as 2 digits in base-96, map to emojis
   let result = '';
   for(let i=0;i<text.length;i++){
     const code = text.charCodeAt(i);
@@ -210,17 +252,14 @@ function textToEmojis(text){
     const lo = code % EMOJIS.length;
     result += EMOJIS[hi] + EMOJIS[lo];
   }
-  // Add marker emoji at start to identify Option A
   return '🅰️' + result;
 }
 
 function emojisToText(str){
-  // Use Array.from to properly handle multi-byte emoji chars
   let chars = Array.from(str);
-  // Remove marker 🅰️ (could be 1 or 2 code units)
   if(chars[0] === '🅰') {
     chars.shift();
-    if(chars[0] === '\uFE0F') chars.shift();
+    if(chars[0] === '️' || chars[0] === '\uFE0F') chars.shift();
   }
   chars = chars.filter(c => c.trim() !== '');
   let result = '';
@@ -236,86 +275,93 @@ function emojisToText(str){
 }
 
 // ============ ENCODING (Option B - Custom) ============
+// Format uses ONLY the chosen emojis:
+// [A0][A1][Elias-gamma(L) bits as A0=0/A1=1][alphabet[2..L-1]][message digits base L]
+function digitsPerCharFor(base){
+  return Math.ceil(Math.log(65536) / Math.log(base));
+}
+
 function customEncode(){
   const text = document.getElementById('msgInputB').value;
   if(!text){ showSendStatus('Please type a message first!','err'); return; }
-  if(chosenEmojis.length < 2){ showSendStatus('Pick at least 2 emojis for your code!','err'); return; }
+  if(chosenEmojis.length < 2){ showSendStatus('Pick at least 2 emojis for your code! (Click emojis above)','err'); return; }
 
-  // Encode message using base-encoding with CHOSEN emojis as alphabet
-  const alphabet = [...new Set(chosenEmojis)]; // unique chosen emojis
+  const alphabet = [];
+  chosenEmojis.forEach(e=>{ if(alphabet.indexOf(e) < 0) alphabet.push(e); });
   if(alphabet.length < 2){ showSendStatus('Pick at least 2 DIFFERENT emojis!','err'); return; }
 
-  const base = alphabet.length;
-  let encoded = '';
+  const L = alphabet.length;
+  const A0 = alphabet[0], A1 = alphabet[1];
+  const payload = getPlainWithExpiry(text);
 
-  // First: encode the chosen alphabet itself (so decoder knows it)
-  // Format: [marker B] [alphabet emojis separated by separator] [separator] [encoded message]
-  // We use a special separator - the last emoji of full EMOJIS list as delimiter won't work
-  // Better: encode alphabet length + alphabet + message
+  // Elias gamma encode L
+  let bin = [];
+  let v = L;
+  while(v > 0){ bin.unshift(v % 2); v = Math.floor(v / 2); }
 
-  // Encode message chars as numbers in the chosen base
-  for(let i=0;i<text.length;i++){
-    let code = text.charCodeAt(i);
-    let digits = [];
-    while(code > 0){
-      digits.unshift(code % base);
-      code = Math.floor(code / base);
+  let out = A0 + A1;
+  for(let i=0;i<bin.length-1;i++) out += A0;
+  for(const b of bin) out += (b === 1 ? A1 : A0);
+
+  // rest of alphabet (indices 2..L-1)
+  for(let i=2;i<L;i++) out += alphabet[i];
+
+  // encode message with chosen alphabet only
+  const dpc = digitsPerCharFor(L);
+  for(let i=0;i<payload.length;i++){
+    let code = payload.charCodeAt(i);
+    const digits = [];
+    for(let d=0; d<dpc; d++){
+      digits.unshift(code % L);
+      code = Math.floor(code / L);
     }
-    if(digits.length===0) digits = [0];
-    // Encode each digit with 1 emoji from chosen alphabet, prefix with count
-    // Use padding: each char uses fixed 3 digits (max code ~65535, base>=2 => need enough)
-    while(digits.length < 4) digits.unshift(0);
-    encoded += digits.map(d=>alphabet[d]).join('');
+    out += digits.map(d=>alphabet[d]).join('');
   }
 
-  // Build full code: marker + alphabet size + alphabet emojis + encoded
-  const sizeHi = EMOJIS[Math.floor(base / EMOJIS.length)];
-  const sizeLo = EMOJIS[base % EMOJIS.length];
-  const fullCode = '🅱️' + sizeHi + sizeLo + alphabet.join('') + '💠' + encoded;
-
-  document.getElementById('emojiOutput').textContent = fullCode;
+  document.getElementById('emojiOutput').textContent = out;
   document.getElementById('emojiOutput').classList.remove('empty');
   document.getElementById('sendOutput').classList.remove('hidden');
-  showSendStatus('Secret code generated! Copy and send it!','ok');
+  showSendStatus('Secret code generated! Uses only your ' + L + ' emoji(s). Expires in ' + getExpiryLabel() + '. Copy and send it!','ok');
 }
 
 function decodeCustom(str){
-  let chars = Array.from(str);
-  // Remove marker 🅱️
-  if(chars[0] === '🅱') {
-    chars.shift();
-    if(chars[0] === '\uFE0F') chars.shift();
-  }
-  chars = chars.filter(c => c.trim() !== '');
-
-  // Read alphabet size (2 emojis)
+  const chars = Array.from(str).filter(c => c.trim() !== '');
   if(chars.length < 2) return null;
-  const sizeHi = EMOJI_MAP[chars[0]];
-  const sizeLo = EMOJI_MAP[chars[1]];
-  if(sizeHi===undefined || sizeLo===undefined) return null;
-  const base = sizeHi * EMOJIS.length + sizeLo;
-  chars = chars.slice(2);
+  const A0 = chars[0], A1 = chars[1];
+  if(A0 === A1) return null;
 
-  // Find separator 💠
-  const sepIdx = chars.indexOf('💠');
-  if(sepIdx === -1) return null;
+  let idx = 2;
+  let zeros = 0;
+  while(idx < chars.length && chars[idx] === A0){ zeros++; idx++; }
+  if(idx >= chars.length || chars[idx] !== A1) return null;
+  idx++;
 
-  const alphabet = chars.slice(0, sepIdx);
-  const encoded = chars.slice(sepIdx + 1);
+  let L = 1;
+  for(let i=0;i<zeros;i++){
+    if(idx >= chars.length) return null;
+    const bit = chars[idx];
+    if(bit !== A0 && bit !== A1) return null;
+    L = L * 2 + (bit === A1 ? 1 : 0);
+    idx++;
+  }
+  if(L < 2 || L > 96) return null;
+  if(chars.length < idx + (L - 2)) return null;
 
-  const alphaMap = {};
-  alphabet.forEach((e,i)=>alphaMap[e]=i);
+  const alphabet = [A0, A1];
+  for(let i=0;i<L-2;i++) alphabet.push(chars[idx++]);
+
+  const dpc = digitsPerCharFor(L);
+  const remaining = chars.length - idx;
+  if(remaining % dpc !== 0) return null;
 
   let result = '';
-  const digitsPerChar = 4;
-  for(let i=0;i<encoded.length;i+=digitsPerChar){
+  while(idx + dpc <= chars.length){
     let code = 0;
-    for(let j=0;j<digitsPerChar && (i+j)<encoded.length;j++){
-      const d = alphaMap[encoded[i+j]];
-      if(d===undefined) return null;
-      code = code * base + d;
+    for(let j=0;j<dpc;j++){
+      const d = alphabet.indexOf(chars[idx++]);
+      if(d < 0) return null;
+      code = code * L + d;
     }
-    if(code > 0x10FFFF) return null;
     result += String.fromCharCode(code);
   }
   return result;
@@ -326,11 +372,12 @@ function autoEncode(){
   const text = document.getElementById('msgInput').value;
   if(!text){ showSendStatus('Please type a message first!','err'); return; }
 
-  const emojis = textToEmojis(text);
+  const payload = getPlainWithExpiry(text);
+  const emojis = textToEmojis(payload);
   document.getElementById('emojiOutput').textContent = emojis;
   document.getElementById('emojiOutput').classList.remove('empty');
   document.getElementById('sendOutput').classList.remove('hidden');
-  showSendStatus('Secret emojis generated! Copy and send them!','ok');
+  showSendStatus('Secret emojis generated! Expires in ' + getExpiryLabel() + '. Copy and send them!','ok');
 }
 
 function copyOutput(){
@@ -339,7 +386,6 @@ function copyOutput(){
   navigator.clipboard.writeText(text).then(()=>{
     showSendStatus('✅ Copied! Now paste it to your friend!','ok');
   }).catch(()=>{
-    // Fallback
     const ta = document.createElement('textarea');
     ta.value = text;
     document.body.appendChild(ta);
@@ -381,29 +427,30 @@ function decodeMsg(){
   let result = null;
   const firstChar = Array.from(input)[0];
 
-  // Auto-detect based on marker
-  if(firstChar === '🅰' || decodeType === 'A'){
+  if(firstChar === '🅰'){
     result = emojisToText(input);
-  }
-  if((result === null || result === '') && (firstChar === '🅱' || decodeType === 'B')){
+  } else {
     result = decodeCustom(input);
-  }
-  // Try other method if still null
-  if(result === null || result === ''){
-    result = emojisToText(input);
-  }
-  if(result === null || result === ''){
-    result = decodeCustom(input);
+    if(result === null || result === ''){
+      result = emojisToText(input);
+    }
   }
 
   if(result !== null && result !== ''){
-    resultBox.textContent = '🔓 ' + result;
+    const check = checkExpiry(result);
+    if(check.expired){
+      resultBox.classList.remove('show');
+      status.textContent = '⌛ This message has expired and can no longer be read!';
+      status.className = 'msg-status err';
+      return;
+    }
+    resultBox.textContent = '🔓 ' + check.text;
     resultBox.classList.add('show');
     status.textContent = '';
     status.className = 'msg-status';
   } else {
     resultBox.classList.remove('show');
-    status.textContent = '❌ Could not decode. Make sure you pasted the correct emojis and selected the right option (A or B).';
+    status.textContent = '❌ Could not decode. Make sure you pasted the correct emojis.';
     status.className = 'msg-status err';
   }
 }
