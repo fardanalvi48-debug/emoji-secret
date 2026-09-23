@@ -1,0 +1,416 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Emoji Secret - Secret Message</title>
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+body{font-family:'Segoe UI',Tahoma,sans-serif;background:linear-gradient(135deg,#0f0c29,#302b63,#24243e);min-height:100vh;color:#fff;padding:20px}
+.container{max-width:700px;margin:0 auto}
+h1{text-align:center;font-size:2.2em;margin:20px 0 5px;background:linear-gradient(90deg,#f7971e,#ffd200);-webkit-background-clip:text;-webkit-text-fill-color:transparent}
+.subtitle{text-align:center;color:#aaa;margin-bottom:30px;font-size:1.05em}
+.tabs{display:flex;gap:10px;margin-bottom:20px}
+.tab{flex:1;padding:14px;text-align:center;background:rgba(255,255,255,.08);border:2px solid transparent;border-radius:12px;cursor:pointer;font-size:1em;font-weight:600;transition:.3s;color:#ccc}
+.tab.active{background:rgba(247,151,30,.2);border-color:#f7971e;color:#ffd200}
+.tab:hover{background:rgba(255,255,255,.12)}
+.card{background:rgba(255,255,255,.06);border:1px solid rgba(255,255,255,.1);border-radius:16px;padding:25px;margin-bottom:20px;backdrop-filter:blur(10px)}
+label{display:block;font-weight:600;margin-bottom:8px;color:#ffd200;font-size:.95em}
+textarea,input[type=text]{width:100%;padding:14px;border:2px solid rgba(255,255,255,.15);border-radius:10px;background:rgba(0,0,0,.3);color:#fff;font-size:1em;resize:vertical;font-family:inherit}
+textarea:focus,input[type=text]:focus{outline:none;border-color:#f7971e}
+textarea{min-height:100px}
+.btn{display:inline-block;padding:14px 28px;border:none;border-radius:10px;font-size:1em;font-weight:700;cursor:pointer;transition:.3s;margin-top:12px}
+.btn-primary{background:linear-gradient(90deg,#f7971e,#ffd200);color:#1a1a2e}
+.btn-primary:hover{transform:translateY(-2px);box-shadow:0 5px 20px rgba(247,151,30,.4)}
+.btn-secondary{background:rgba(255,255,255,.12);color:#fff;border:1px solid rgba(255,255,255,.2)}
+.btn-secondary:hover{background:rgba(255,255,255,.2)}
+.btn-copy{background:linear-gradient(90deg,#00b09b,#96c93d);color:#fff}
+.btn-copy:hover{transform:translateY(-2px);box-shadow:0 5px 20px rgba(0,176,155,.4)}
+.output-box{background:rgba(0,0,0,.4);border:2px dashed rgba(247,151,30,.5);border-radius:12px;padding:20px;min-height:80px;margin-top:15px;font-size:1.5em;word-break:break-all;line-height:1.8;text-align:center}
+.output-box.empty{color:#666;font-size:.95em;border-style:solid;border-color:rgba(255,255,255,.1)}
+.result-box{background:rgba(0,176,155,.15);border:2px solid #00b09b;border-radius:12px;padding:20px;margin-top:15px;font-size:1.2em;word-break:break-word;line-height:1.6;display:none}
+.result-box.show{display:block}
+.section-title{font-size:1.1em;font-weight:700;color:#ffd200;margin-bottom:12px;display:flex;align-items:center;gap:8px}
+.emoji-palette{display:grid;grid-template-columns:repeat(auto-fill,minmax(48px,1fr));gap:8px;margin-top:10px;max-height:250px;overflow-y:auto;padding:10px;background:rgba(0,0,0,.2);border-radius:10px}
+.emoji-pick{font-size:1.6em;padding:8px;text-align:center;cursor:pointer;border-radius:8px;border:2px solid transparent;transition:.2s;background:rgba(255,255,255,.05)}
+.emoji-pick:hover{border-color:#f7971e;transform:scale(1.15)}
+.emoji-pick.selected{border-color:#00b09b;background:rgba(0,176,155,.2)}
+.chosen-emojis{display:flex;flex-wrap:wrap;gap:6px;margin-top:12px;min-height:50px;padding:12px;background:rgba(0,0,0,.3);border-radius:10px;border:1px solid rgba(255,255,255,.1)}
+.chosen-emoji{font-size:1.8em;padding:4px 8px;background:rgba(247,151,30,.2);border-radius:8px;cursor:pointer;border:1px solid rgba(247,151,30,.4);animation:pop .2s}
+.chosen-emoji:hover{background:rgba(255,80,80,.3);border-color:#ff5050}
+@keyframes pop{0%{transform:scale(0)}100%{transform:scale(1)}}
+.hint{color:#888;font-size:.85em;margin-top:8px}
+.hidden{display:none!important}
+.msg-status{text-align:center;padding:10px;border-radius:8px;margin-top:10px;font-weight:600;display:none}
+.msg-status.ok{display:block;background:rgba(0,176,155,.2);color:#96c93d}
+.msg-status.err{display:block;background:rgba(255,80,80,.2);color:#ff8080}
+.footer{text-align:center;color:#555;font-size:.85em;margin-top:30px;padding-top:20px;border-top:1px solid rgba(255,255,255,.06)}
+.mode-desc{background:rgba(247,151,30,.1);border-left:3px solid #f7971e;padding:10px 14px;border-radius:0 8px 8px 0;margin-bottom:15px;font-size:.9em;color:#ccc}
+@media(max-width:500px){
+  h1{font-size:1.6em}
+  .tabs{flex-direction:column}
+  .emoji-palette{grid-template-columns:repeat(auto-fill,minmax(42px,1fr))}
+  .btn{width:100%;text-align:center}
+}
+</style>
+</head>
+<body>
+<div class="container">
+  <h1>🔐 Emoji Secret</h1>
+  <p class="subtitle">Type a message → Get secret emojis → Send to friend → They decode it!</p>
+
+  <!-- MODE TABS -->
+  <div class="tabs">
+    <div class="tab active" onclick="setMode('send')" id="tabSend">📤 Send Message</div>
+    <div class="tab" onclick="setMode('receive')" id="tabReceive">📥 Decode Message</div>
+  </div>
+
+  <!-- ==================== SEND MODE ==================== -->
+  <div id="sendMode">
+    <!-- Encode Type -->
+    <div class="tabs" style="margin-bottom:15px">
+      <div class="tab active" onclick="setEncodeType('A')" id="tabA">⚡ Option A - Auto</div>
+      <div class="tab" onclick="setEncodeType('B')" id="tabB">🎨 Option B - Custom</div>
+    </div>
+
+    <div class="card">
+      <!-- Option A -->
+      <div id="encodeA">
+        <div class="mode-desc">✅ Type your message → system auto-converts it into secret emojis. Friend pastes emojis to see your message.</div>
+        <label>✍️ Your Secret Message</label>
+        <textarea id="msgInput" placeholder="Type your secret message here..."></textarea>
+        <button class="btn btn-primary" onclick="autoEncode()">🔐 Generate Secret Emojis</button>
+      </div>
+
+      <!-- Option B -->
+      <div id="encodeB" class="hidden">
+        <div class="mode-desc">✅ Type your message → then pick emojis below to build a custom code. Each emoji you pick adds to your secret code.</div>
+        <label>✍️ Your Secret Message</label>
+        <textarea id="msgInputB" placeholder="Type your secret message here..."></textarea>
+
+        <label style="margin-top:15px">🎨 Pick Emojis for Your Code</label>
+        <div class="emoji-palette" id="emojiPalette"></div>
+
+        <label style="margin-top:15px">📌 Your Chosen Emojis (click to remove)</label>
+        <div class="chosen-emojis" id="chosenEmojis">
+          <span style="color:#666;font-size:.9em">Click emojis above to add them here...</span>
+        </div>
+        <button class="btn btn-primary" onclick="customEncode()">🔐 Generate Secret Code</button>
+      </div>
+
+      <!-- Output -->
+      <div id="sendOutput" class="hidden">
+        <label style="margin-top:20px">📤 Copy These Emojis & Send to Your Friend:</label>
+        <div class="output-box" id="emojiOutput"></div>
+        <div style="display:flex;gap:10px;flex-wrap:wrap">
+          <button class="btn btn-copy" onclick="copyOutput()">📋 Copy Emojis</button>
+          <button class="btn btn-secondary" onclick="resetSend()">🔄 Start Over</button>
+        </div>
+        <div class="msg-status" id="sendStatus"></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ==================== RECEIVE MODE ==================== -->
+  <div id="receiveMode" class="hidden">
+    <div class="card">
+      <div class="mode-desc">📥 Paste the secret emojis you received → Click Decode → See the original message!</div>
+
+      <div class="tabs" style="margin-bottom:15px">
+        <div class="tab active" onclick="setDecodeType('A')" id="tabDA">⚡ Decode Option A</div>
+        <div class="tab" onclick="setDecodeType('B')" id="tabDB">🎨 Decode Option B</div>
+      </div>
+
+      <label>📩 Paste Secret Emojis Here</label>
+      <textarea id="decodeInput" placeholder="Paste the emojis you received..."></textarea>
+      <button class="btn btn-primary" onclick="decodeMsg()">🔓 Decode Message</button>
+
+      <div class="result-box" id="decodeResult"></div>
+      <div class="msg-status" id="recvStatus"></div>
+    </div>
+  </div>
+
+  <div class="footer">Emoji Secret • Works on Phone & PC • No Server Needed • 100% Free</div>
+</div>
+
+<script>
+// ============ EMOJI ALPHABET (96 emojis for base-96 encoding) ============
+const EMOJIS = ['😀','😁','😂','🤣','😃','😄','😅','😆','😉','😊','😋','😎','😍','😘','🥰','😗','😙','😚','🙂','🤗','🤩','🤔','🤨','😐','😑','😶','🙄','😏','😣','😥','😮','🤐','😯','😪','😫','😴','😌','😛','😜','😝','🤤','😒','😓','😔','😕','🙃','🤑','😲','🙁','😖','😞','😟','😤','😢','😭','😦','😧','😨','😩','🤯','😬','😰','😱','🥵','🥶','😳','🤪','😵','😡','😠','🤬','😷','🤒','🤕','🤢','🤮','🤧','😇','🥳','🥺','🤠','🤡','🤥','🤫','🤭','🧐','🤓','😈','👿','👹','👺','💀','👻','👽','🤖','💩'];
+const EMOJI_MAP = {};
+EMOJIS.forEach((e,i)=>EMOJI_MAP[e]=i);
+
+// ============ MODE SWITCHING ============
+let mode = 'send';
+let encodeType = 'A';
+let decodeType = 'A';
+let chosenEmojis = [];
+
+function setMode(m){
+  mode = m;
+  document.getElementById('sendMode').classList.toggle('hidden', m!=='send');
+  document.getElementById('receiveMode').classList.toggle('hidden', m!=='receive');
+  document.getElementById('tabSend').classList.toggle('active', m==='send');
+  document.getElementById('tabReceive').classList.toggle('active', m==='receive');
+}
+
+function setEncodeType(t){
+  encodeType = t;
+  document.getElementById('tabA').classList.toggle('active', t==='A');
+  document.getElementById('tabB').classList.toggle('active', t==='B');
+  document.getElementById('encodeA').classList.toggle('hidden', t!=='A');
+  document.getElementById('encodeB').classList.toggle('hidden', t!=='B');
+  document.getElementById('sendOutput').classList.add('hidden');
+}
+
+function setDecodeType(t){
+  decodeType = t;
+  document.getElementById('tabDA').classList.toggle('active', t==='A');
+  document.getElementById('tabDB').classList.toggle('active', t==='B');
+}
+
+// ============ EMOJI PALETTE ============
+function buildPalette(){
+  const pal = document.getElementById('emojiPalette');
+  pal.innerHTML = '';
+  EMOJIS.forEach(e=>{
+    const d = document.createElement('div');
+    d.className = 'emoji-pick';
+    d.textContent = e;
+    d.onclick = ()=>pickEmoji(e);
+    pal.appendChild(d);
+  });
+}
+
+function pickEmoji(e){
+  chosenEmojis.push(e);
+  renderChosen();
+}
+
+function removeEmoji(idx){
+  chosenEmojis.splice(idx,1);
+  renderChosen();
+}
+
+function renderChosen(){
+  const box = document.getElementById('chosenEmojis');
+  if(chosenEmojis.length===0){
+    box.innerHTML = '<span style="color:#666;font-size:.9em">Click emojis above to add them here...</span>';
+    return;
+  }
+  box.innerHTML = chosenEmojis.map((e,i)=>`<span class="chosen-emoji" onclick="removeEmoji(${i})" title="Click to remove">${e}</span>`).join('');
+}
+
+// ============ ENCODING (Option A - Auto) ============
+function textToEmojis(text){
+  // Encode each char code as 2 digits in base-96, map to emojis
+  let result = '';
+  for(let i=0;i<text.length;i++){
+    const code = text.charCodeAt(i);
+    const hi = Math.floor(code / EMOJIS.length);
+    const lo = code % EMOJIS.length;
+    result += EMOJIS[hi] + EMOJIS[lo];
+  }
+  // Add marker emoji at start to identify Option A
+  return '🅰️' + result;
+}
+
+function emojisToText(str){
+  // Use Array.from to properly handle multi-byte emoji chars
+  let chars = Array.from(str);
+  // Remove marker 🅰️ (could be 1 or 2 code units)
+  if(chars[0] === '🅰') {
+    chars.shift();
+    if(chars[0] === '\uFE0F') chars.shift();
+  }
+  chars = chars.filter(c => c.trim() !== '');
+  let result = '';
+  for(let i=0;i<chars.length-1;i+=2){
+    const hi = EMOJI_MAP[chars[i]];
+    const lo = EMOJI_MAP[chars[i+1]];
+    if(hi===undefined || lo===undefined) return null;
+    const code = hi * EMOJIS.length + lo;
+    if(code > 0x10FFFF) return null;
+    result += String.fromCharCode(code);
+  }
+  return result;
+}
+
+// ============ ENCODING (Option B - Custom) ============
+function customEncode(){
+  const text = document.getElementById('msgInputB').value;
+  if(!text){ showSendStatus('Please type a message first!','err'); return; }
+  if(chosenEmojis.length < 2){ showSendStatus('Pick at least 2 emojis for your code!','err'); return; }
+
+  // Encode message using base-encoding with CHOSEN emojis as alphabet
+  const alphabet = [...new Set(chosenEmojis)]; // unique chosen emojis
+  if(alphabet.length < 2){ showSendStatus('Pick at least 2 DIFFERENT emojis!','err'); return; }
+
+  const base = alphabet.length;
+  let encoded = '';
+
+  // First: encode the chosen alphabet itself (so decoder knows it)
+  // Format: [marker B] [alphabet emojis separated by separator] [separator] [encoded message]
+  // We use a special separator - the last emoji of full EMOJIS list as delimiter won't work
+  // Better: encode alphabet length + alphabet + message
+
+  // Encode message chars as numbers in the chosen base
+  for(let i=0;i<text.length;i++){
+    let code = text.charCodeAt(i);
+    let digits = [];
+    while(code > 0){
+      digits.unshift(code % base);
+      code = Math.floor(code / base);
+    }
+    if(digits.length===0) digits = [0];
+    // Encode each digit with 1 emoji from chosen alphabet, prefix with count
+    // Use padding: each char uses fixed 3 digits (max code ~65535, base>=2 => need enough)
+    while(digits.length < 4) digits.unshift(0);
+    encoded += digits.map(d=>alphabet[d]).join('');
+  }
+
+  // Build full code: marker + alphabet size + alphabet emojis + encoded
+  const sizeHi = EMOJIS[Math.floor(base / EMOJIS.length)];
+  const sizeLo = EMOJIS[base % EMOJIS.length];
+  const fullCode = '🅱️' + sizeHi + sizeLo + alphabet.join('') + '💠' + encoded;
+
+  document.getElementById('emojiOutput').textContent = fullCode;
+  document.getElementById('emojiOutput').classList.remove('empty');
+  document.getElementById('sendOutput').classList.remove('hidden');
+  showSendStatus('Secret code generated! Copy and send it!','ok');
+}
+
+function decodeCustom(str){
+  let chars = Array.from(str);
+  // Remove marker 🅱️
+  if(chars[0] === '🅱') {
+    chars.shift();
+    if(chars[0] === '\uFE0F') chars.shift();
+  }
+  chars = chars.filter(c => c.trim() !== '');
+
+  // Read alphabet size (2 emojis)
+  if(chars.length < 2) return null;
+  const sizeHi = EMOJI_MAP[chars[0]];
+  const sizeLo = EMOJI_MAP[chars[1]];
+  if(sizeHi===undefined || sizeLo===undefined) return null;
+  const base = sizeHi * EMOJIS.length + sizeLo;
+  chars = chars.slice(2);
+
+  // Find separator 💠
+  const sepIdx = chars.indexOf('💠');
+  if(sepIdx === -1) return null;
+
+  const alphabet = chars.slice(0, sepIdx);
+  const encoded = chars.slice(sepIdx + 1);
+
+  const alphaMap = {};
+  alphabet.forEach((e,i)=>alphaMap[e]=i);
+
+  let result = '';
+  const digitsPerChar = 4;
+  for(let i=0;i<encoded.length;i+=digitsPerChar){
+    let code = 0;
+    for(let j=0;j<digitsPerChar && (i+j)<encoded.length;j++){
+      const d = alphaMap[encoded[i+j]];
+      if(d===undefined) return null;
+      code = code * base + d;
+    }
+    if(code > 0x10FFFF) return null;
+    result += String.fromCharCode(code);
+  }
+  return result;
+}
+
+// ============ SEND ACTIONS ============
+function autoEncode(){
+  const text = document.getElementById('msgInput').value;
+  if(!text){ showSendStatus('Please type a message first!','err'); return; }
+
+  const emojis = textToEmojis(text);
+  document.getElementById('emojiOutput').textContent = emojis;
+  document.getElementById('emojiOutput').classList.remove('empty');
+  document.getElementById('sendOutput').classList.remove('hidden');
+  showSendStatus('Secret emojis generated! Copy and send them!','ok');
+}
+
+function copyOutput(){
+  const text = document.getElementById('emojiOutput').textContent;
+  if(!text) return;
+  navigator.clipboard.writeText(text).then(()=>{
+    showSendStatus('✅ Copied! Now paste it to your friend!','ok');
+  }).catch(()=>{
+    // Fallback
+    const ta = document.createElement('textarea');
+    ta.value = text;
+    document.body.appendChild(ta);
+    ta.select();
+    document.execCommand('copy');
+    document.body.removeChild(ta);
+    showSendStatus('✅ Copied! Now paste it to your friend!','ok');
+  });
+}
+
+function resetSend(){
+  document.getElementById('msgInput').value = '';
+  document.getElementById('msgInputB').value = '';
+  chosenEmojis = [];
+  renderChosen();
+  document.getElementById('sendOutput').classList.add('hidden');
+  document.getElementById('sendStatus').className = 'msg-status';
+}
+
+function showSendStatus(msg, type){
+  const el = document.getElementById('sendStatus');
+  el.textContent = msg;
+  el.className = 'msg-status ' + type;
+}
+
+// ============ DECODE ACTIONS ============
+function decodeMsg(){
+  const input = document.getElementById('decodeInput').value.trim();
+  const resultBox = document.getElementById('decodeResult");
+  const status = document.getElementById('recvStatus');
+
+  if(!input){
+    resultBox.classList.remove('show');
+    status.textContent = 'Please paste the secret emojis first!';
+    status.className = 'msg-status err';
+    return;
+  }
+
+  let result = null;
+  const firstChar = Array.from(input)[0];
+
+  // Auto-detect based on marker
+  if(firstChar === '🅰' || decodeType === 'A'){
+    result = emojisToText(input);
+  }
+  if((result === null || result === '') && (firstChar === '🅱' || decodeType === 'B')){
+    result = decodeCustom(input);
+  }
+  // Try other method if still null
+  if(result === null || result === ''){
+    result = emojisToText(input);
+  }
+  if(result === null || result === ''){
+    result = decodeCustom(input);
+  }
+
+  if(result !== null && result !== ''){
+    resultBox.textContent = '🔓 ' + result;
+    resultBox.classList.add('show');
+    status.textContent = '';
+    status.className = 'msg-status';
+  } else {
+    resultBox.classList.remove('show');
+    status.textContent = '❌ Could not decode. Make sure you pasted the correct emojis and selected the right option (A or B).';
+    status.className = 'msg-status err';
+  }
+}
+
+// ============ INIT ============
+buildPalette();
+renderChosen();
+</script>
+</body>
+</html>
